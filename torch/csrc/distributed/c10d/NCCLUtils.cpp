@@ -8,7 +8,7 @@
 #ifdef USE_C10D_NCCL
 #include <vector>
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <mutex>
 
 #include <nlohmann/json.hpp>
@@ -152,7 +152,7 @@ size_t hashTensors(const std::vector<at::Tensor>& tensors) {
         std::vector<char> dst(data_size);
         // This is needed so that we trigger a device synchronization so we can
         // get the collective finished if launched on GPU and hash its output.
-        cudaMemcpy(dst.data(), src, data_size, cudaMemcpyDeviceToHost);
+        hipMemcpy(dst.data(), src, data_size, hipMemcpyDeviceToHost);
         for (size_t i = 0; i < data_size; ++i) {
           // Update the hash for each byte in the tensor
           hash = c10::hash_combine(hash, c10::get_hash(dst[i], data_size));

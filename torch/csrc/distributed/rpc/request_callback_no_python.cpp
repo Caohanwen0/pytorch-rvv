@@ -567,7 +567,7 @@ c10::intrusive_ptr<Message> RequestCallbackNoPython::handleError(
 }
 
 bool RequestCallbackNoPython::cudaAvailable() const {
-#ifdef USE_CUDA
+#ifdef USE_ROCM
   return true;
 #else
   return false;
