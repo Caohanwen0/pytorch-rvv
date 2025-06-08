@@ -571,5 +571,321 @@ Vectorized<double> inline maximum(const Vectorized<double>& a, const Vectorized<
 Vectorized<double> inline minimum(const Vectorized<double>& a, const Vectorized<double>& b) {
   return __riscv_vfmin_vv_f64m2(a, b, VDOUBLE64_VL);
 }
+
+// type conversion functions  #TODO
+inline std::tuple<Vectorized<float>, Vectorized<float>> convert_double_float(
+    const Vectorized<double>& a, const Vectorized<double>& b) {
+  constexpr int64_t K = Vectorized<float>::size();
+  __at_align__ double arr_double[K];
+  __at_align__ float arr_float[K];
   
+  // Store first double vector
+  a.store(arr_double);
+  b.store(arr_double + Vectorized<double>::size());
+  
+  // Convert double to float
+  convert(arr_double, arr_float, K);
+  
+  return std::make_tuple(
+      Vectorized<float>::loadu(arr_float),
+      Vectorized<float>::loadu(arr_float + Vectorized<float>::size()));
+}
+
+// Float to Double conversion functions  
+inline std::tuple<Vectorized<double>, Vectorized<double>> convert_float_double(
+    const Vectorized<float>& a) {
+  constexpr int64_t K = Vectorized<float>::size();
+  __at_align__ float arr_float[K];
+  __at_align__ double arr_double[K];
+  
+  a.store(arr_float);
+  convert(arr_float, arr_double, K);
+  
+  return std::make_tuple(
+      Vectorized<double>::loadu(arr_double),
+      Vectorized<double>::loadu(arr_double + Vectorized<double>::size()));
+}
+
+// Generic conversion templates for double<->float
+template <>
+inline void convert(const double* src, float* dst, int64_t n) {
+  int64_t i;
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (i = 0; i <= (n - Vectorized<double>::size()); i += Vectorized<double>::size()) {
+#ifdef USE_RVV_M4
+    __riscv_vse32_v_f32m2(dst + i, 
+        __riscv_vfncvt_f_f_w_f32m2(__riscv_vle64_v_f64m4(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+        VFLOAT64_VL);
+#else
+    __riscv_vse32_v_f32m1(dst + i, 
+        __riscv_vfncvt_f_f_w_f32m1(__riscv_vle64_v_f64m2(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+        VFLOAT64_VL);
+#endif
+  }
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (; i < n; i++) {
+    dst[i] = static_cast<float>(src[i]);
+  }
+}
+
+template <>
+inline void convert(const float* src, double* dst, int64_t n) {
+  int64_t i;
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (i = 0; i <= (n - Vectorized<double>::size()); i += Vectorized<double>::size()) {
+#ifdef USE_RVV_M4
+    __riscv_vse64_v_f64m4(dst + i, 
+        __riscv_vfwcvt_f_f_v_f64m4(__riscv_vle32_v_f32m2(src + i, VFLOAT32_VL), VFLOAT32_VL), 
+        VFLOAT64_VL);
+#else
+    __riscv_vse64_v_f64m2(dst + i, 
+        __riscv_vfwcvt_f_f_v_f64m2(__riscv_vle32_v_f32m1(src + i, VFLOAT32_VL), VFLOAT32_VL), 
+        VFLOAT64_VL);
+#endif
+  }
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (; i < n; i++) {
+    dst[i] = static_cast<double>(src[i]);
+  }
+}
+
+// Double to Integer conversion functions
+template <>
+inline void convert(const double* src, int32_t* dst, int64_t n) {
+  int64_t i;
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (i = 0; i <= (n - Vectorized<double>::size()); i += Vectorized<double>::size()) {
+#ifdef USE_RVV_M4
+    __riscv_vse32_v_i32m2(dst + i, 
+        __riscv_vfncvt_rtz_x_f_w_i32m2(__riscv_vle64_v_f64m4(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+        VFLOAT64_VL);
+#else
+    __riscv_vse32_v_i32m1(dst + i, 
+        __riscv_vfncvt_rtz_x_f_w_i32m1(__riscv_vle64_v_f64m2(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+        VFLOAT64_VL);
+#endif
+  }
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (; i < n; i++) {
+    dst[i] = static_cast<int32_t>(src[i]);
+  }
+}
+
+template <>
+inline void convert(const int32_t* src, double* dst, int64_t n) {
+  int64_t i;
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (i = 0; i <= (n - Vectorized<double>::size()); i += Vectorized<double>::size()) {
+#ifdef USE_RVV_M4
+    __riscv_vse64_v_f64m4(dst + i, 
+        __riscv_vfwcvt_f_x_v_f64m4(__riscv_vle32_v_i32m2(src + i, VFLOAT32_VL), VFLOAT32_VL), 
+        VFLOAT64_VL);
+#else
+    __riscv_vse64_v_f64m2(dst + i, 
+        __riscv_vfwcvt_f_x_v_f64m2(__riscv_vle32_v_i32m1(src + i, VFLOAT32_VL), VFLOAT32_VL), 
+        VFLOAT64_VL);
+#endif
+  }
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (; i < n; i++) {
+    dst[i] = static_cast<double>(src[i]);
+  }
+}
+
+// Load functions for mixed precision operations
+inline void load_fp64_from_fp32(const float* data, Vectorized<double>& out) {
+  __at_align__ double values[Vectorized<double>::size()];
+  for (const auto k : c10::irange(Vectorized<double>::size())) {
+    values[k] = static_cast<double>(data[k]);
+  }
+  out = Vectorized<double>::loadu(values);
+}
+
+inline void load_fp64_from_fp32(
+    const float* data,
+    Vectorized<double>& out1,
+    Vectorized<double>& out2) {
+  load_fp64_from_fp32(data, out1);
+  data += Vectorized<double>::size();
+  load_fp64_from_fp32(data, out2);
+}
+
+inline void load_fp32_from_fp64(const double* data, Vectorized<float>& out) {
+  __at_align__ float values[Vectorized<float>::size()];
+  for (const auto k : c10::irange(Vectorized<float>::size())) {
+    values[k] = static_cast<float>(data[k]);
+  }
+  out = Vectorized<float>::loadu(values);
+}
+  
+
+
+
+
+// Double与Float之间的转换
+inline std::tuple<Vectorized<double>, Vectorized<double>> convert_float_double(
+    const Vectorized<float>& a) {
+  constexpr int64_t K = Vectorized<float>::size();
+  __at_align__ float arr_float[K];
+  __at_align__ double arr_double[K];
+  a.store(arr_float);
+  
+  // 使用标量转换
+  for (int64_t i = 0; i < K; ++i) {
+    arr_double[i] = static_cast<double>(arr_float[i]);
+  }
+  
+  return std::make_tuple(
+    Vectorized<double>::loadu(arr_double),
+    Vectorized<double>::loadu(arr_double + Vectorized<double>::size())
+  );
+}
+
+inline Vectorized<float> convert_double_float(
+    const Vectorized<double>& a, 
+    const Vectorized<double>& b) {
+  constexpr int64_t K = Vectorized<float>::size();
+  __at_align__ double arr_double[K];
+  __at_align__ float arr_float[K];
+  
+  a.store(arr_double);
+  b.store(arr_double + Vectorized<double>::size());
+  
+  // 使用标量转换
+  for (int64_t i = 0; i < K; ++i) {
+    arr_float[i] = static_cast<float>(arr_double[i]);
+  }
+  
+  return Vectorized<float>::loadu(arr_float);
+}
+
+// Double与Int32之间的转换
+template <>
+inline void convert(const double* src, int32_t* dst, int64_t n) {
+  int64_t i;
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (i = 0; i <= (n - Vectorized<double>::size()); i += Vectorized<double>::size()) {
+#ifdef USE_RVV_M4
+    __riscv_vse32_v_i32m2(dst + i, 
+      __riscv_vfcvt_rtz_x_f_v_i32m2(
+        __riscv_vle64_v_f64m4(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+      VFLOAT64_VL);
+#else
+    __riscv_vse32_v_i32m1(dst + i, 
+      __riscv_vfcvt_rtz_x_f_v_i32m1(
+        __riscv_vle64_v_f64m2(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+      VFLOAT64_VL);
+#endif
+  }
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (; i < n; i++) {
+    dst[i] = static_cast<int32_t>(src[i]);
+  }
+}
+
+template <>
+inline void convert(const int32_t* src, double* dst, int64_t n) {
+  int64_t i;
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (i = 0; i <= (n - Vectorized<double>::size()); i += Vectorized<double>::size()) {
+#ifdef USE_RVV_M4
+    __riscv_vse64_v_f64m4(dst + i, 
+      __riscv_vfcvt_f_x_v_f64m4(
+        __riscv_vle32_v_i32m2(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+      VFLOAT64_VL);
+#else
+    __riscv_vse64_v_f64m2(dst + i, 
+      __riscv_vfcvt_f_x_v_f64m2(
+        __riscv_vle32_v_i32m1(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+      VFLOAT64_VL);
+#endif
+  }
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (; i < n; i++) {
+    dst[i] = static_cast<double>(src[i]);
+  }
+}
+
+// Double与Int64之间的转换
+template <>
+inline void convert(const double* src, int64_t* dst, int64_t n) {
+  int64_t i;
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (i = 0; i <= (n - Vectorized<double>::size()); i += Vectorized<double>::size()) {
+#ifdef USE_RVV_M4
+    __riscv_vse64_v_i64m4(dst + i, 
+      __riscv_vfcvt_rtz_x_f_v_i64m4(
+        __riscv_vle64_v_f64m4(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+      VFLOAT64_VL);
+#else
+    __riscv_vse64_v_i64m2(dst + i, 
+      __riscv_vfcvt_rtz_x_f_v_i64m2(
+        __riscv_vle64_v_f64m2(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+      VFLOAT64_VL);
+#endif
+  }
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (; i < n; i++) {
+    dst[i] = static_cast<int64_t>(src[i]);
+  }
+}
+
+template <>
+inline void convert(const int64_t* src, double* dst, int64_t n) {
+  int64_t i;
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (i = 0; i <= (n - Vectorized<double>::size()); i += Vectorized<double>::size()) {
+#ifdef USE_RVV_M4
+    __riscv_vse64_v_f64m4(dst + i, 
+      __riscv_vfcvt_f_x_v_f64m4(
+        __riscv_vle64_v_i64m4(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+      VFLOAT64_VL);
+#else
+    __riscv_vse64_v_f64m2(dst + i, 
+      __riscv_vfcvt_f_x_v_f64m2(
+        __riscv_vle64_v_i64m2(src + i, VFLOAT64_VL), VFLOAT64_VL), 
+      VFLOAT64_VL);
+#endif
+  }
+#ifndef __msvc_cl__
+#pragma unroll
+#endif
+  for (; i < n; i++) {
+    dst[i] = static_cast<double>(src[i]);
+  }
+}
+
+
+
+
 }} // namespace at::vec::CPU_CAPABILITY

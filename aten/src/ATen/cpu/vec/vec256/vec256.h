@@ -25,6 +25,7 @@
 #include <ATen/cpu/vec/vec256/rvv/vec256_qint8_rvv.h>
 #include <ATen/cpu/vec/vec256/rvv/vec256_quint8_rvv.h>
 #include <ATen/cpu/vec/vec256/rvv/vec256_bfloat16_rvv.h>
+#include <ATen/cpu/vec/vec256/rvv/vec256_double_rvv.h>
 #else
 #include <ATen/cpu/vec/vec256/zarch/vec256_zarch.h>
 #include <ATen/cpu/vec/vec256/vec256_bfloat16.h>
